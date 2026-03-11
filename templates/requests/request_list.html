@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}ЗАЯВКИ | БЫТСЕРВИС{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h4 mb-0">УПРАВЛЕНИЕ ЗАЯВКАМИ</h2>
+    {% if user.user_type == 'Оператор' or user.user_type == 'Администратор' %}
+        <a href="{% url 'request_create' %}" class="btn btn-primary btn-sm">
+            НОВАЯ ЗАЯВКА
+        </a>
+    {% endif %}
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h6 class="mb-0">ПОИСК</h6>
+    </div>
+    <div class="card-body">
+        <form method="get" class="row g-3">
+            <div class="col-md-10">
+                <input type="text" name="client_name" class="form-control" 
+                       placeholder="Введите ФИО клиента для поиска..." 
+                       value="{{ request.GET.client_name|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">НАЙТИ</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h6 class="mb-0">СПИСОК ЗАЯВОК ({{ requests.count }})</h6>
+    </div>
+    <div class="card-body">
+        {% if requests %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ДАТА</th>
+                            <th>КЛИЕНТ</th>
+                            <th>ТЕЛЕФОН</th>
+                            <th>ТЕХНИКА</th>
+                            <th>МОДЕЛЬ</th>
+                            <th>СТАТУС</th>
+                            <th>МАСТЕР</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in requests %}
+                        <tr>
+                            <td>{{ request.startDate|date:"d.m.Y" }}</td>
+                            <td>{{ request.client.fio }}</td>
+                            <td>{{ request.client.phone }}</td>
+                            <td>{{ request.homeTechType }}</td>
+                            <td>{{ request.homeTechModel }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if request.requestStatus == 'Новая заявка' %}bg-warning
+                                    {% elif request.requestStatus == 'В процессе ремонта' %}bg-primary
+                                    {% elif request.requestStatus == 'Готова к выдаче' %}bg-success
+                                    {% else %}bg-info{% endif %}">
+                                    {{ request.requestStatus }}
+                                </span>
+                            </td>
+                            <td>{{ request.master.fio|default:"—" }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'request_detail' request.requestID %}" 
+                                       class="btn btn-outline-info">👁️</a>
+                                    
+                                    {% if user.user_type == 'Оператор' or user.user_type == 'Администратор' %}
+                                        <a href="{% url 'request_update' request.requestID %}" 
+                                           class="btn btn-outline-warning">✏️</a>
+                                        <button type="button" class="btn btn-outline-danger" 
+                                                data-bs-toggle="modal" 
+                                                data-bs-target="#deleteModal{{ request.requestID }}">🗑️</button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted mb-0">Заявок нет</p>
+        {% endif %}
+    </div>
+</div>
+
+{% for request in requests %}
+<div class="modal fade" id="deleteModal{{ request.requestID }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">ПОДТВЕРЖДЕНИЕ</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Удалить заявку клиента <strong>{{ request.client.fio }}</strong>?</p>
+                <p class="text-danger small">Действие необратимо</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ОТМЕНА</button>
+                <form action="{% url 'request_delete' request.requestID %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm">УДАЛИТЬ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

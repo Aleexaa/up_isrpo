@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+
+{% load static %}
+
+{% block title %}ЗАЯВКА #{{ request_obj.requestID }} | БЫТСЕРВИС{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">← НАЗАД</a>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h4 mb-0">ЗАЯВКА #{{ request_obj.requestID }}</h2>
+    <div>
+        {% if user.user_type == 'Оператор' or user.user_type == 'Администратор' %}
+            <a href="{% url 'request_update' request_obj.requestID %}" class="btn btn-warning btn-sm">РЕДАКТИРОВАТЬ</a>
+            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteModal">УДАЛИТЬ</button>
+        {% endif %}
+        {% if user.user_type == 'Менеджер по качеству' and not request_obj.extension_approved %}
+            <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#extendModal">ЗАПРОСИТЬ ПРОДЛЕНИЕ</button>
+        {% endif %}
+        {% if user.user_type == 'Заказчик' and request_obj.deadline_extended and not request_obj.extension_approved %}
+            <div class="btn-group">
+                <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#approveModal">✅ СОГЛАСОВАТЬ</button>
+                <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal">❌ ОТКЛОНИТЬ</button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">ИНФОРМАЦИЯ О ЗАЯВКЕ</h6>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Дата:</div>
+                    <div class="col-md-9">{{ request_obj.startDate|date:"d.m.Y" }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Техника:</div>
+                    <div class="col-md-9">{{ request_obj.homeTechType }} {{ request_obj.homeTechModel }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Проблема:</div>
+                    <div class="col-md-9">{{ request_obj.problemDescryption|linebreaks }}</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Статус:</div>
+                    <div class="col-md-9">
+                        <span class="badge 
+                            {% if request_obj.requestStatus == 'Новая заявка' %}bg-warning
+                            {% elif request_obj.requestStatus == 'В процессе ремонта' %}bg-primary
+                            {% elif request_obj.requestStatus == 'Готова к выдаче' %}bg-success
+                            {% endif %}">
+                            {{ request_obj.requestStatus }}
+                        </span>
+                    </div>
+                </div>
+                {% if request_obj.completionDate %}
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Завершена:</div>
+                    <div class="col-md-9">{{ request_obj.completionDate|date:"d.m.Y" }}</div>
+                </div>
+                {% endif %}
+                {% if request_obj.repairParts %}
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Запчасти:</div>
+                    <div class="col-md-9">{{ request_obj.repairParts }}</div>
+                </div>
+                {% endif %}
+                                {% if request_obj.deadline_extended %}
+                <div class="row mb-3">
+                    <div class="col-md-3 text-muted">Продление срока:</div>
+                    <div class="col-md-9">
+                        {% if request_obj.extension_approved %}
+                            <span class="badge bg-success">СОГЛАСОВАНО</span>
+                        {% else %}
+                            <span class="badge bg-warning">ОЖИДАЕТ СОГЛАСОВАНИЯ</span>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    КОММЕНТАРИИ ({{ comments.count }})
+                    {% if is_client %}
+                        <small class="text-muted">(только для клиента)</small>
+                    {% endif %}
+                </h6>
+                {% if user.user_type == 'Мастер' or user.user_type == 'Менеджер по качеству' %}
+                <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="collapse" data-bs-target="#commentForm">
+                    +
+                </button>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if user.user_type == 'Мастер' or user.user_type == 'Менеджер по качеству' %}
+                <div class="collapse mb-4" id="commentForm">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            {{ form.message }}
+                        </div>
+                        {% if user.user_type == 'Менеджер по качеству' %}
+                            <div class="mb-3">
+                                {{ form.comment_type }}
+                                <small class="text-muted">Выберите "Сообщение клиенту", чтобы клиент увидел комментарий</small>
+                            </div>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary btn-sm">ОТПРАВИТЬ</button>
+                    </form>
+                </div>
+                {% endif %}
+                
+                {% for comment in comments %}
+                    <div class="border-bottom border-secondary pb-3 mb-3">
+                        <div class="d-flex justify-content-between">
+                            <strong>
+                                {{ comment.master.fio }}
+                                {% if comment.master.user_type == 'Менеджер по качеству' %}
+                                    <span class="badge bg-warning ms-2" style="color: #000;">КАЧЕСТВО</span>
+                                {% endif %}
+                                {% if comment.comment_type == 'client' and not is_client %}
+                                    <span class="badge bg-info ms-2">ДЛЯ КЛИЕНТА</span>
+                                {% endif %}
+                            </strong>
+                            <small class="text-muted">{{ comment.created_at|date:"d.m.Y H:i" }}</small>
+                        </div>
+                        <p class="mb-0 mt-2">{{ comment.message }}</p>
+                    </div>
+                {% empty %}
+                    <p class="text-muted mb-0">Комментариев нет</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">КЛИЕНТ</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-2"><strong>{{ request_obj.client.fio }}</strong></p>
+                <p class="mb-0 text-muted">{{ request_obj.client.phone }}</p>
+            </div>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0">МАСТЕР</h6>
+            </div>
+            <div class="card-body">
+                {% if request_obj.master %}
+                    <p class="mb-2"><strong>{{ request_obj.master.fio }}</strong></p>
+                    <p class="mb-0 text-muted">{{ request_obj.master.phone }}</p>
+                {% else %}
+                    <p class="text-muted mb-3">Мастер не назначен</p>
+                    
+                    {% if user.user_type == 'Оператор' or user.user_type == 'Администратор' or user.user_type == 'Менеджер по качеству' %}
+                        <form action="{% url 'assign_master' request_obj.requestID %}" method="post">
+                            {% csrf_token %}
+                            <select name="master_id" class="form-select mb-2" required>
+                                <option value="">Выберите мастера</option>
+                                {% for master in masters %}
+                                    <option value="{{ master.id }}">{{ master.fio }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-sm w-100">НАЗНАЧИТЬ</button>
+                        </form>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">ОЦЕНКА КАЧЕСТВА</h6>
+            </div>
+            <div class="card-body text-center">
+                {% if qr_code %}
+                    <img src="data:image/png;base64,{{ qr_code }}" class="img-fluid mb-2" style="max-width: 200px;">
+                    <p class="small text-muted">Отсканируйте для оценки работы сервиса</p>
+                {% else %}
+                    <a href="{% url 'generate_qr' request_obj.requestID %}" class="btn btn-outline-info btn-sm">
+                        ПОЛУЧИТЬ QR-КОД
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно удаления -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">ПОДТВЕРЖДЕНИЕ</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Удалить заявку #{{ request_obj.requestID }}?</p>
+                <p class="text-danger small">Действие необратимо</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ОТМЕНА</button>
+                <form action="{% url 'request_delete' request_obj.requestID %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-sm">УДАЛИТЬ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно продления срока -->
+<div class="modal fade" id="extendModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">ЗАПРОС ПРОДЛЕНИЯ СРОКА</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{% url 'extend_deadline' request_obj.requestID %}" method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Новый срок</label>
+                        <input type="date" name="new_deadline" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Комментарий для клиента</label>
+                        <textarea name="comment" class="form-control" rows="3" placeholder="Объясните причину продления..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100">ОТПРАВИТЬ ЗАПРОС КЛИЕНТУ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно согласования -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">СОГЛАСОВАНИЕ ПРОДЛЕНИЯ</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Вы согласны продлить срок выполнения заявки до <strong>{{ request_obj.deadline_extended_date }}</strong>?</p>
+                <form action="{% url 'approve_extension' request_obj.requestID %}" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="approve">
+                    <button type="submit" class="btn btn-success w-100">ДА, СОГЛАСОВАТЬ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно отклонения -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">ОТКЛОНЕНИЕ ПРОДЛЕНИЯ</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Вы хотите отклонить продление срока?</p>
+                <form action="{% url 'approve_extension' request_obj.requestID %}" method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="reject">
+                    <button type="submit" class="btn btn-danger w-100">ОТКЛОНИТЬ</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

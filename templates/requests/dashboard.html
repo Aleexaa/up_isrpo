@@ -1,0 +1,380 @@
+{% extends 'base.html' %}
+
+{% block title %}ПАНЕЛЬ | БЫТСЕРВИС{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h4 mb-0">ПАНЕЛЬ УПРАВЛЕНИЯ</h2>
+    <span class="badge 
+        {% if user.user_type == 'Администратор' %}bg-secondary
+        {% elif user.user_type == 'Оператор' %}bg-primary
+        {% elif user.user_type == 'Мастер' %}bg-info
+        {% elif user.user_type == 'Менеджер' %}bg-success
+        {% elif user.user_type == 'Менеджер по качеству' %}bg-warning
+        {% else %}bg-warning{% endif %}">
+        {{ user.user_type }}
+    </span>
+</div>
+
+{% if user.user_type == 'Заказчик' %}
+    <!-- Заказчик -->
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0">МОИ ЗАЯВКИ</h6>
+        </div>
+        <div class="card-body">
+            {% if my_requests %}
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ДАТА</th>
+                                <th>ТЕХНИКА</th>
+                                <th>МОДЕЛЬ</th>
+                                <th>СТАТУС</th>
+                                <th>МАСТЕР</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in my_requests %}
+                            <tr>
+                                <td>{{ request.startDate|date:"d.m.Y" }}</td>
+                                <td>{{ request.homeTechType }}</td>
+                                <td>{{ request.homeTechModel }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if request.requestStatus == 'Новая заявка' %}bg-warning
+                                        {% elif request.requestStatus == 'В процессе ремонта' %}bg-primary
+                                        {% elif request.requestStatus == 'Готова к выдаче' %}bg-success
+                                        {% endif %}">
+                                        {{ request.requestStatus }}
+                                    </span>
+                                </td>
+                                <td>{{ request.master.fio|default:"—" }}</td>
+                                <td>
+                                    <a href="{% url 'request_detail' request.requestID %}" 
+                                       class="btn btn-sm btn-outline-primary">ПРОСМОТР</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted mb-0">У вас нет заявок</p>
+            {% endif %}
+        </div>
+    </div>
+
+{% elif user.user_type == 'Менеджер' or user.user_type == 'Менеджер по качеству' %}
+    <!-- Детальная статистика для менеджеров -->
+    
+    <!-- Основные показатели -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">ВСЕГО ЗАЯВОК</h6>
+                    <p class="display-6 mb-0">{{ total_requests }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">В РАБОТЕ</h6>
+                    <p class="display-6 mb-0">{{ status_stats.in_progress }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">ГОТОВО К ВЫДАЧЕ</h6>
+                    <p class="display-6 mb-0">{{ status_stats.ready }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">НОВЫЕ</h6>
+                    <p class="display-6 mb-0">{{ status_stats.new }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Статистика выполнения -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">ГОТОВО К ВЫДАЧЕ</h6>
+                </div>
+                <div class="card-body">
+                    <p class="display-6 text-center mb-2">{{ status_stats.ready }}</p>
+                    <p class="text-muted text-center">заявок ожидают клиента</p>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span>Среднее время ремонта:</span>
+                        <strong>{{ avg_repair_time }} дней</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">В РАБОТЕ</h6>
+                </div>
+                <div class="card-body">
+                    <p class="display-6 text-center mb-2">{{ status_stats.in_progress }}</p>
+                    <p class="text-muted text-center">активных заявок</p>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span>Мастеров:</span>
+                        <strong>{{ masters_count }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">НОВЫЕ ЗАЯВКИ</h6>
+                </div>
+                <div class="card-body">
+                    <p class="display-6 text-center mb-2">{{ status_stats.new }}</p>
+                    <p class="text-muted text-center">ждут назначения</p>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <span>Всего заявок:</span>
+                        <strong>{{ total_requests }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Статусы и топ неисправностей -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">СТАТУСЫ ЗАЯВОК</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span>🟡 Новые:</span>
+                        <strong>{{ status_stats.new }}</strong>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span>🔵 В процессе:</span>
+                        <strong>{{ status_stats.in_progress }}</strong>
+                    </div>
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span>🟢 Готовы к выдаче:</span>
+                        <strong>{{ status_stats.ready }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0">ТОП НЕИСПРАВНОСТЕЙ</h6>
+                </div>
+                <div class="card-body">
+                    {% for stat in tech_stats %}
+                        <div class="mb-2 d-flex justify-content-between">
+                            <span>{{ stat.homeTechType }}:</span>
+                            <strong>{{ stat.count }}</strong>
+                        </div>
+                    {% empty %}
+                        <p class="text-muted">Нет данных</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Динамика по месяцам -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h6 class="mb-0">ДИНАМИКА ЗАЯВОК ПО МЕСЯЦАМ</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>МЕСЯЦ</th>
+                            <th>КОЛИЧЕСТВО</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in monthly_stats %}
+                        <tr>
+                            <td>{{ stat.month|date:"F Y" }}</td>
+                            <td>{{ stat.count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-muted">Нет данных</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Последние заявки -->
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0">ПОСЛЕДНИЕ ЗАЯВКИ</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ДАТА</th>
+                            <th>КЛИЕНТ</th>
+                            <th>ТЕХНИКА</th>
+                            <th>МОДЕЛЬ</th>
+                            <th>СТАТУС</th>
+                            <th>МАСТЕР</th>
+                            <th>ВРЕМЯ</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in recent_requests %}
+                        <tr>
+                            <td>{{ request.startDate|date:"d.m.Y" }}</td>
+                            <td>{{ request.client.fio }}</td>
+                            <td>{{ request.homeTechType }}</td>
+                            <td>{{ request.homeTechModel }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if request.requestStatus == 'Новая заявка' %}bg-warning
+                                    {% elif request.requestStatus == 'В процессе ремонта' %}bg-primary
+                                    {% elif request.requestStatus == 'Готова к выдаче' %}bg-success
+                                    {% endif %}">
+                                    {{ request.requestStatus }}
+                                </span>
+                            </td>
+                            <td>{{ request.master.fio|default:"—" }}</td>
+                            <td>
+                                {% if request.completionDate %}
+                                    {{ request.completionDate|timeuntil:request.startDate }}
+                                {% else %}
+                                    <span class="text-warning">в работе</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'request_detail' request.requestID %}" 
+                                   class="btn btn-sm btn-outline-primary">→</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'request_list' %}" class="btn btn-sm btn-primary">ВСЕ ЗАЯВКИ</a>
+        </div>
+    </div>
+
+{% else %}
+    <!-- Обычные сотрудники (Оператор, Мастер) -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">ГОТОВО К ВЫДАЧЕ</h6>
+                    <p class="display-6 mb-0">{{ status_stats.ready }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">СРЕДНЕЕ ВРЕМЯ</h6>
+                    <p class="display-6 mb-0">{{ avg_repair_time }} дн.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">ТОП НЕИСПРАВНОСТЕЙ</h6>
+                    {% for stat in tech_stats %}
+                        <div class="d-flex justify-content-between small">
+                            <span>{{ stat.homeTechType }}</span>
+                            <span>{{ stat.count }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h6 class="mb-0">ПОСЛЕДНИЕ ЗАЯВКИ</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ДАТА</th>
+                            <th>КЛИЕНТ</th>
+                            <th>ТЕХНИКА</th>
+                            <th>МОДЕЛЬ</th>
+                            <th>СТАТУС</th>
+                            <th>МАСТЕР</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in recent_requests %}
+                        <tr>
+                            <td>{{ request.startDate|date:"d.m.Y" }}</td>
+                            <td>{{ request.client.fio }}</td>
+                            <td>{{ request.homeTechType }}</td>
+                            <td>{{ request.homeTechModel }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if request.requestStatus == 'Новая заявка' %}bg-warning
+                                    {% elif request.requestStatus == 'В процессе ремонта' %}bg-primary
+                                    {% elif request.requestStatus == 'Готова к выдаче' %}bg-success
+                                    {% endif %}">
+                                    {{ request.requestStatus }}
+                                </span>
+                            </td>
+                            <td>{{ request.master.fio|default:"—" }}</td>
+                            <td>
+                                <a href="{% url 'request_detail' request.requestID %}" 
+                                   class="btn btn-sm btn-outline-primary">→</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'request_list' %}" class="btn btn-sm btn-primary">ВСЕ ЗАЯВКИ</a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

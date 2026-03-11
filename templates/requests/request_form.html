@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} | БЫТСЕРВИС{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="javascript:history.back()" class="btn btn-outline-secondary btn-sm">← НАЗАД</a>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{{ title }}</h6>
+            </div>
+            <div class="card-body">
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    {% for field in form %}
+                        <div class="mb-4">
+                            <label for="{{ field.id_for_label }}" class="form-label">
+                                {{ field.label }}
+                                {% if field.field.required %}
+                                    <span class="text-danger">*</span>
+                                {% endif %}
+                            </label>
+                            
+                            {% if field.errors %}
+                                <div class="text-danger small mb-1">
+                                    {% for error in field.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            
+                            {{ field }}
+                            
+                            {% if field.help_text %}
+                                <div class="form-text">{{ field.help_text }}</div>
+                            {% endif %}
+                            
+                            {% if field.name == 'client' %}
+                                <small class="text-muted d-block mt-1">Выберите клиента из списка</small>
+                            {% endif %}
+                            
+                            {% if field.name == 'master' %}
+                                <small class="text-muted d-block mt-1">Можно оставить пустым, назначить позже</small>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    
+                    <div class="alert alert-info small">
+                        <i class="mb-0">Дата создания будет установлена автоматически (сегодня)</i>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="submit" class="btn btn-primary px-4">СОЗДАТЬ ЗАЯВКУ</button>
+                        <a href="{% url 'request_list' %}" class="btn btn-secondary px-4">ОТМЕНА</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
